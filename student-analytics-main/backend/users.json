@@ -30,5 +30,45 @@
     "password": "123456",
     "role": "teacher",
     "createdAt": "2026-04-09T04:28:38.930Z"
+  },
+  {
+    "id": 1775709719328,
+    "name": "abcd",
+    "email": "abcd@gmail.com",
+    "password": "123456",
+    "role": "student",
+    "createdAt": "2026-04-09T04:41:59.328Z"
+  },
+  {
+    "id": 1775709767251,
+    "name": "abcde",
+    "email": "abcde@gmail.com",
+    "password": "123456",
+    "role": "teacher",
+    "createdAt": "2026-04-09T04:42:47.251Z"
+  },
+  {
+    "id": 1775883812254,
+    "name": "Test User 2",
+    "email": "test2@example.com",
+    "password": "password123",
+    "role": "student",
+    "createdAt": "2026-04-11T05:03:32.254Z"
+  },
+  {
+    "id": 1775883837209,
+    "name": "New Test User",
+    "email": "newtest@example.com",
+    "password": "password123",
+    "role": "student",
+    "createdAt": "2026-04-11T05:03:57.209Z"
+  },
+  {
+    "id": 1775883907998,
+    "name": "123",
+    "email": "123@gmail.com",
+    "password": "123@56",
+    "role": "student",
+    "createdAt": "2026-04-11T05:05:07.998Z"
   }
 ]
