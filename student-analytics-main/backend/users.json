@@ -70,5 +70,13 @@
     "password": "123@56",
     "role": "student",
     "createdAt": "2026-04-11T05:05:07.998Z"
+  },
+  {
+    "id": 1775888104793,
+    "name": "sindhu",
+    "email": "sin@gmail.com",
+    "password": "123456",
+    "role": "student",
+    "createdAt": "2026-04-11T06:15:04.793Z"
   }
 ]

@@ -1,38 +1,73 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const fs = require('fs');
-const path = require('path');
+const mysql = require('mysql2/promise');
+const dbConfig = require('./config');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+// Create database connection pool
+let db;
+
+async function initializeDatabase() {
+  try {
+    // Create connection without database first
+    const connection = await mysql.createConnection({
+      host: dbConfig.host,
+      user: dbConfig.user,
+      password: dbConfig.password
+    });
+
+    // Create database if it doesn't exist
+    await connection.execute('CREATE DATABASE IF NOT EXISTS student_analytics');
+    await connection.end();
+
+    // Create connection pool with database
+    db = mysql.createPool(dbConfig);
+
+    // Create users table
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        role ENUM('student', 'teacher') DEFAULT 'student',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Seed demo users if they don't exist
+    const demoUsers = [
+      { name: 'Sindhu', email: 'sindhu@gmail.com', password: 'Ss@123456', role: 'student' },
+      { name: 'Sneha', email: 'sneha@gmail.com', password: 'Ss@12345', role: 'teacher' }
+    ];
+
+    for (const demoUser of demoUsers) {
+      const [existing] = await db.execute(
+        'SELECT id FROM users WHERE email = ?',
+        [demoUser.email]
+      );
+      if (existing.length === 0) {
+        await db.execute(
+          'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
+          [demoUser.name, demoUser.email, demoUser.password, demoUser.role]
+        );
+      }
+    }
+
+    console.log('✅ Database initialized successfully');
+  } catch (error) {
+    console.error('❌ Database initialization error:', error);
+    process.exit(1);
+  }
+}
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-
-// Simple in-memory user storage (or file-based)
-const usersFile = path.join(__dirname, 'users.json');
-
-// Initialize users file if it doesn't exist
-if (!fs.existsSync(usersFile)) {
-  fs.writeFileSync(usersFile, JSON.stringify([], null, 2));
-}
-
-// Helper functions
-const readUsers = () => {
-  try {
-    const data = fs.readFileSync(usersFile, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
-    return [];
-  }
-};
-
-const writeUsers = (users) => {
-  fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
-};
 
 // Validation helper
 const isValidEmail = (email) => {
@@ -41,7 +76,7 @@ const isValidEmail = (email) => {
 };
 
 // Auth Routes
-app.post('/api/auth/signup', (req, res) => {
+app.post('/api/auth/signup', async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
@@ -58,29 +93,27 @@ app.post('/api/auth/signup', (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-    const users = readUsers();
-
     // Check if user already exists
-    if (users.find(u => u.email === email)) {
+    const [existingUsers] = await db.execute(
+      'SELECT id FROM users WHERE email = ?',
+      [email]
+    );
+
+    if (existingUsers.length > 0) {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
     // Create new user
-    const newUser = {
-      id: Date.now(),
-      name,
-      email,
-      password, // In production, hash this!
-      role: role || 'student',
-      createdAt: new Date().toISOString()
-    };
+    const [result] = await db.execute(
+      'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
+      [name, email, password, role || 'student']
+    );
 
-    users.push(newUser);
-    writeUsers(users);
+    const newUserId = result.insertId;
 
     res.status(201).json({
       message: 'Account created successfully',
-      user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role }
+      user: { id: newUserId, name, email, role: role || 'student' }
     });
   } catch (error) {
     console.error('Signup error:', error);
@@ -88,7 +121,7 @@ app.post('/api/auth/signup', (req, res) => {
   }
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -97,12 +130,17 @@ app.post('/api/auth/login', (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const users = readUsers();
-    const user = users.find(u => u.email === email && u.password === password);
+    // Find user
+    const [users] = await db.execute(
+      'SELECT id, name, email, role FROM users WHERE email = ? AND password = ?',
+      [email, password]
+    );
 
-    if (!user) {
+    if (users.length === 0) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
+
+    const user = users[0];
 
     res.status(200).json({
       message: 'Login successful',
@@ -116,11 +154,19 @@ app.post('/api/auth/login', (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'API is running' });
+  res.status(200).json({ status: 'API is running', database: 'connected' });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Auth API Server is running on http://localhost:${PORT}`);
-  console.log(`POST /api/auth/signup - Create new account`);
-  console.log(`POST /api/auth/login - Login to account`);
-});
+// Start server with database initialization
+async function startServer() {
+  await initializeDatabase();
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Auth API Server is running on http://localhost:${PORT}`);
+    console.log(`📊 Connected to MySQL database: student_analytics`);
+    console.log(`POST /api/auth/signup - Create new account`);
+    console.log(`POST /api/auth/login - Login to account`);
+  });
+}
+
+startServer().catch(console.error);

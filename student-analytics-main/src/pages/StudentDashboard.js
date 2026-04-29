@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { students, assessments, getCurrentStudent, getAllStudentsWithQuizData } from "../services/dataService";
+import AcademicInsights from "../components/AcademicInsights";
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, Tooltip,
@@ -81,7 +82,7 @@ function StudentDashboard() {
     { id: "overview", label: "📊 Academic Overview", icon: "📊" },
     { id: "performance", label: "📈 Performance", icon: "📈" },
     { id: "assessments", label: "✅ Assessments", icon: "✅" },
-    { id: "recommendations", label: "💡 Recommendations", icon: "💡" },
+    { id: "recommendations", label: "💡 AI Recommendations", icon: "💡" },
     { id: "quizzes", label: "❓ Upcoming Quizzes", icon: "❓" }
   ];
 
@@ -243,16 +244,7 @@ function StudentDashboard() {
           {/* RECOMMENDATIONS */}
           {activeMenu === "recommendations" && (
             <div style={sectionContainer}>
-              <h2 style={sectionTitle}>Personalized Recommendations</h2>
-              <div style={recommendationGrid}>
-                {recommendations.map((item, idx) => (
-                  <div key={idx} style={recommendationCard}>
-                    <p style={recommendationIcon}>💡</p>
-                    <h4 style={recommendationTitle}>Recommendation {idx + 1}</h4>
-                    <p style={recommendationText}>{item}</p>
-                  </div>
-                ))}
-              </div>
+              <AcademicInsights student={student} allStudents={allStudents} />
             </div>
           )}
 
